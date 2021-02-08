@@ -1,0 +1,21 @@
+{
+    "name": "fls-api",
+    "version": "0.1.0",
+    "description": "FLS API",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "start": "nodemon server.js"
+    },
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+        "nodemon": "^2.0.7"
+    },
+    "dependencies": {
+        "cors": "^2.8.5",
+        "express": "^4.17.1",
+        "mongoose": "^5.11.15",
+        "oci-sdk": "^1.14.0"
+    }
+}
