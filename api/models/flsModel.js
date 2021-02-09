@@ -6,8 +6,16 @@ const identity = require("oci-identity")
 const wr = require("oci-workrequests")
 const common = require("oci-common")
 const util = require("util")
-    //OCI configuration
+const RandExp = require('randexp')
+const mime = require('mime')
+const path = require('path')
+const fs = require('fs')
+
+//OCI configuration
 const config = require("./ociConfig.js")
+
+//Cloud init script
+const scriptPath = config.scriptPath
 
 //credentials
 const provider = new common.ConfigFileAuthenticationDetailsProvider(
@@ -48,7 +56,7 @@ async function getAvailabilityDomains() {
         return response.items
     } catch (error) {
         console.log("getAvailabilityDomains failed with error  " + error);
-        return error
+        throw error
     }
 }
 
@@ -74,7 +82,7 @@ async function getInstancesInAD(ad) {
         return instancesNotTerminated
     } catch (error) {
         console.log("listInstances failed with error  " + error);
-        return error
+        throw error
     }
 }
 
@@ -99,7 +107,7 @@ async function getShapesInAD(ad) {
         return availableShapes
     } catch (error) {
         console.log("getShapes failed with error  " + error);
-        return error
+        throw error
     }
 }
 
@@ -120,8 +128,12 @@ async function provisionInstance(name, shape, ad) {
             }
         } else throw 'Invalid shape selected'
 
+        let pass = generateVNCPassword()
+
         const metadata = {
-            ssh_authorized_keys: config.publicKeySSH
+            ssh_authorized_keys: config.publicKeySSH,
+            user_data: base64encodefile(scriptPath),
+            myarg_vnc_password: pass
         }
 
         const launchInstanceDetails = {
@@ -153,11 +165,13 @@ async function provisionInstance(name, shape, ad) {
 
         const instanceId = getInstanceResponse.instance.id
 
-        return instanceId
+        let returnValue = { "instanceId": instanceId, "password": pass }
+
+        return returnValue
 
     } catch (error) {
         console.log("provisionInstance failed with error  " + error);
-        return error
+        throw error
     }
 }
 
@@ -174,72 +188,86 @@ async function terminateInstance(id) {
         return terminateInstanceResponse
     } catch (error) {
         console.log("terminateInstance failed with error  " + error);
-        return error
+        throw error
     }
 }
 
 //Start an instance
-async function startInstance(id) {
-    const startInstanceRequest = core.requests.InstanceActionRequest = {
-        instanceId: id,
-        action: core.requests.InstanceActionRequest.Action.Start
-    }
-    const startInstanceResponse = await computeClient.instanceAction(startInstanceRequest)
-        //wait for instance to be in STARTED status
-    const getInstanceRequest = {
-        instanceId: startInstanceResponse.instance.id
-    }
+async function startInstanceWithId(id) {
+    try {
+        const startInstanceRequest = core.requests.InstanceActionRequest = {
+            instanceId: id,
+            action: "START"
+        }
+        const startInstanceResponse = await computeClient.instanceAction(startInstanceRequest)
+            //wait for instance to be in STARTED status
+        const getInstanceRequest = {
+            instanceId: startInstanceResponse.instance.id
+        }
 
-    const getInstanceResponse = await computeWaiter.forInstance(getInstanceRequest, core.models.Instance.LifecycleState.Start)
-    return getInstanceResponse.instance.id
+        const getInstanceResponse = await computeWaiter.forInstance(getInstanceRequest, core.models.Instance.LifecycleState.Running)
+        return getInstanceResponse.instance.id
+    } catch (error) {
+        console.log("startInstance failed with error  " + error);
+        throw error
+    }
 }
 
 //Stop an instance
-async function stopInstance(id) {
-    const stopInstanceRequest = core.requests.InstanceActionRequest = {
-        instanceId: id,
-        action: core.requests.InstanceActionRequest.Action.Softstop
-    }
-    const stopInstanceResponse = await computeClient.instanceAction(stopInstanceRequest)
-        //wait for instance to be in STOPPED status
-    const getInstanceRequest = {
-        instanceId: stopInstanceResponse.instance.id
-    }
+async function stopInstanceWithId(id) {
+    try {
+        const stopInstanceRequest = core.requests.InstanceActionRequest = {
+            instanceId: id,
+            action: "SOFTSTOP"
+        }
+        const stopInstanceResponse = await computeClient.instanceAction(stopInstanceRequest)
+            //wait for instance to be in STOPPED status
+        const getInstanceRequest = {
+            instanceId: stopInstanceResponse.instance.id
+        }
 
-    const getInstanceResponse = await computeWaiter.forInstance(getInstanceRequest, core.models.Instance.LifecycleState.Stopped)
-    return getInstanceResponse.instance.id
+        const getInstanceResponse = await computeWaiter.forInstance(getInstanceRequest, core.models.Instance.LifecycleState.Stopped)
+        return getInstanceResponse.instance.id
+    } catch (error) {
+        console.log("stopInstance failed with error  " + error);
+        throw error
+    }
 }
 
 //Get Public IP of instance
 async function getPublicIP(id) {
+    try {
+        const listVnicAttachmentsRequest = {
+            compartmentId: config.compartmentId,
+            instanceId: id
+        }
 
-    const listVnicAttachmentsRequest = {
-        compartmentId: config.compartmentId,
-        instanceId: id
+        const listVnicAttachmentsResponse = await computeClient.listVnicAttachments(listVnicAttachmentsRequest)
+        const vnicId = listVnicAttachmentsResponse.items[0].vnicId
+
+        const listPrivateIpsRequest = {
+            vnicId: vnicId
+        }
+
+        const listPrivateIpsResponse = await virtualNetworkClient.listPrivateIps(listPrivateIpsRequest)
+
+        const privateIpId = listPrivateIpsResponse.items[0].id
+
+        const getPublicIpByPrivateIpIdDetails = {
+            privateIpId: privateIpId
+        };
+        const getPublicIpByPrivateIpIdRequest = {
+            getPublicIpByPrivateIpIdDetails: getPublicIpByPrivateIpIdDetails,
+        }
+
+        const getPublicIpByPrivateIpIdResponse = await virtualNetworkClient.getPublicIpByPrivateIpId(getPublicIpByPrivateIpIdRequest)
+
+        const publicIP = getPublicIpByPrivateIpIdResponse.publicIp.ipAddress
+        return publicIP
+    } catch (error) {
+        console.log("getPublicIP failed with error  " + error);
+        throw error
     }
-
-    const listVnicAttachmentsResponse = await computeClient.listVnicAttachments(listVnicAttachmentsRequest)
-    const vnicId = listVnicAttachmentsResponse.items[0].vnicId
-
-    const listPrivateIpsRequest = {
-        vnicId: vnicId
-    }
-
-    const listPrivateIpsResponse = await virtualNetworkClient.listPrivateIps(listPrivateIpsRequest)
-
-    const privateIpId = listPrivateIpsResponse.items[0].id
-
-    const getPublicIpByPrivateIpIdDetails = {
-        privateIpId: privateIpId
-    };
-    const getPublicIpByPrivateIpIdRequest = {
-        getPublicIpByPrivateIpIdDetails: getPublicIpByPrivateIpIdDetails,
-    }
-
-    const getPublicIpByPrivateIpIdResponse = await virtualNetworkClient.getPublicIpByPrivateIpId(getPublicIpByPrivateIpIdRequest)
-
-    const publicIP = getPublicIpByPrivateIpIdResponse.publicIp.ipAddress
-    return publicIP
 }
 
 //Functions for export
@@ -267,6 +295,40 @@ async function createInstance(name, shape) {
 async function deleteInstance(id) {
     const deleteInstance = await terminateInstance(id)
     return deleteInstance
+}
+
+async function startInstance(id) {
+    const startInst = await startInstanceWithId(id)
+    return startInst
+}
+
+async function stopInstance(id) {
+    const stopInst = await stopInstanceWithId(id)
+    return stopInst
+}
+
+//helper functions
+
+//generate password with 2 uppercase characters, 2 lowercase characters, 6 random characters and 2 special characters
+const generateVNCPassword = () => {
+    return new RandExp(/^([A-Z]{2}[a-z]{2}[a-zA-Z]{6}[#_-]{2})$/).gen()
+}
+
+//Base64 encode the Cloud init script
+const base64encodefile = script => {
+    // path to the file we passed in
+    const filepath = path.resolve(script);
+
+    // get the mimetype
+    const filemime = mime.getType(filepath);
+
+    fs.readFile(filepath, { encoding: 'base64' }, (err, data) => {
+        if (err) {
+            throw err;
+        }
+        //console.log(`data:${filemime};base64,${data}`);
+        return `${data}`
+    });
 }
 
 //Function exports

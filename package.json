@@ -15,7 +15,9 @@
     "dependencies": {
         "cors": "^2.8.5",
         "express": "^4.17.1",
+        "mime": "^2.5.0",
         "mongoose": "^5.11.15",
-        "oci-sdk": "^1.14.0"
+        "oci-sdk": "^1.14.0",
+        "randexp": "^0.5.3"
     }
 }

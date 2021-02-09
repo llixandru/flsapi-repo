@@ -12,6 +12,8 @@ const imageIdGPU =
 const publicKeySSH = "ssh-rsa MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsh/1dig1DU0FoLD/WM1323Q12y0simMjFEzyo/WjYomMHgvMCjRNhzpjVGwo2ckk6CR0aiVLbPYkw72v2S0SN0BCos2T7ysjVz+lJt3JnJHuArAdy63L5G3Hs+nsHTfshyC5x+WWxlFaYhmIx1RkdYolXXqzGxcMtKizskwrevz8NoZRmax+pYm5G5L8x/QTCHyiXADFuDlq72LlRBeEH72eY+SleP/+RbSjsZn4R7/RMZuZ03jJKGSS8hmYX+fg/5pVI7l/XpVUnSQZz3rBfR43VNMnYuRqHGCidhf9dHb7LisW/WCj+cJyhMwCjV/rywaGCrE8dyYpow35/FRoVwIDAQAB" //public key of the user
     //End Config for the OCI instance
 
+//Cloud init script
+const scriptPath = "./api/scripts/cloud_init.sh"
 
 //Exports
 exports.configurationFilePath = configurationFilePath
@@ -21,3 +23,4 @@ exports.subnetId = subnetId
 exports.imageIdCPU = imageIdCPU
 exports.imageIdGPU = imageIdGPU
 exports.publicKeySSH = publicKeySSH
+exports.scriptPath = scriptPath
