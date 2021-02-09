@@ -137,9 +137,6 @@ async function provisionInstance(name, shape, ad) {
             myarg_vnc_password: pass
         }
 
-        console.log(metadata)
-
-
         const launchInstanceDetails = {
             compartmentId: config.compartmentId,
             availabilityDomain: ad,
