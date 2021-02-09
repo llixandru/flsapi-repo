@@ -6,22 +6,13 @@ const identity = require("oci-identity")
 const wr = require("oci-workrequests")
 const common = require("oci-common")
 const util = require("util")
-
-//Config
-const configurationFilePath = "~/.oci/config" //OCI config file
-const configProfile = "LIANA" //profile name
-const compartmentId = "ocid1.compartment.oc1..aaaaaaaa5uzjzuf3qwxayfc2pmjankhmygjus2sjgnrd3g47jxvyom3pu7va" //compartment ID
-const subnetId = "ocid1.subnet.oc1.eu-frankfurt-1.aaaaaaaah7dauwx2fyvch4zny7oplhr4unppjvjr2zj77trjlbedqbqibgha" //subnet ID
-const imageId =
-    "ocid1.image.oc1.eu-frankfurt-1.aaaaaaaa5w2lrmsn6wpjn7fbqv55curiarwsryqhoj4dw5hsixrl37hrinja"
-
-const publicKeySSH = "ssh-rsa MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsh/1dig1DU0FoLD/WM1323Q12y0simMjFEzyo/WjYomMHgvMCjRNhzpjVGwo2ckk6CR0aiVLbPYkw72v2S0SN0BCos2T7ysjVz+lJt3JnJHuArAdy63L5G3Hs+nsHTfshyC5x+WWxlFaYhmIx1RkdYolXXqzGxcMtKizskwrevz8NoZRmax+pYm5G5L8x/QTCHyiXADFuDlq72LlRBeEH72eY+SleP/+RbSjsZn4R7/RMZuZ03jJKGSS8hmYX+fg/5pVI7l/XpVUnSQZz3rBfR43VNMnYuRqHGCidhf9dHb7LisW/WCj+cJyhMwCjV/rywaGCrE8dyYpow35/FRoVwIDAQAB" //public key
-    //const AD = "0"; //In Frankfurt, can be 0, 1 or 2
+    //OCI configuration
+const config = require("./ociConfig.js")
 
 //credentials
 const provider = new common.ConfigFileAuthenticationDetailsProvider(
-    configurationFilePath,
-    configProfile
+    config.configurationFilePath,
+    config.configProfile
 )
 
 //identity client
@@ -36,21 +27,21 @@ const computeClient = new core.ComputeClient({
 
 //virtual network client
 const virtualNetworkClient = new core.VirtualNetworkClient({
-    authenticationDetailsProvider: provider,
+    authenticationDetailsProvider: provider
 })
 
 //worker
 const workRequestClient = new wr.WorkRequestClient({
-    authenticationDetailsProvider: provider,
+    authenticationDetailsProvider: provider
 })
 
-const computeWaiter = computeClient.createWaiters(workRequestClient);
+const computeWaiter = computeClient.createWaiters(workRequestClient)
 
 //get the list of availabilityDomains
 async function getAvailabilityDomains() {
     try {
         const request = identity.requests.ListAvailabilityDomainsRequest = {
-            compartmentId: compartmentId
+            compartmentId: config.compartmentId
         }
 
         const response = await identityClient.listAvailabilityDomains(request)
@@ -66,7 +57,7 @@ async function getInstancesInAD(ad) {
     try {
         // Create a request and dependent object(s).
         const listInstancesRequest = core.requests.ListInstancesRequest = {
-            compartmentId: compartmentId,
+            compartmentId: config.compartmentId,
             availabilityDomain: ad
         };
         // Send request to the Client.
@@ -93,7 +84,7 @@ async function getShapesInAD(ad) {
         // Create a request and dependent object(s).
         const request = core.requests.ListShapesRequest = {
             availabilityDomain: ad,
-            compartmentId: compartmentId
+            compartmentId: config.compartmentId
         };
 
         const response = await computeClient.listShapes(request)
@@ -115,23 +106,32 @@ async function getShapesInAD(ad) {
 //create new instance
 async function provisionInstance(name, shape, ad) {
     try {
-        const sourceDetails = {
-            sourceType: "image",
-            imageId: imageId
-        }
+        //Pick the right Image ID depending on whether the user has selected Standard or GPU VM
+        let sourceDetails = ""
+        if (shape.includes("Standard")) {
+            sourceDetails = {
+                sourceType: "image",
+                imageId: config.imageIdCPU
+            }
+        } else if (shape.includes("GPU")) {
+            sourceDetails = {
+                sourceType: "image",
+                imageId: config.imageIdGPU
+            }
+        } else throw 'Invalid shape selected'
 
         const metadata = {
-            ssh_authorized_keys: publicKeySSH
+            ssh_authorized_keys: config.publicKeySSH
         }
 
         const launchInstanceDetails = {
-            compartmentId: compartmentId,
+            compartmentId: config.compartmentId,
             availabilityDomain: ad,
             shape: shape,
             displayName: name,
             sourceDetails: sourceDetails,
             createVnicDetails: {
-                subnetId: subnetId,
+                subnetId: config.subnetId,
             },
             metadata: metadata
         }
@@ -214,7 +214,7 @@ async function stopInstance(id) {
 async function getPublicIP(id) {
 
     const listVnicAttachmentsRequest = {
-        compartmentId: compartmentId,
+        compartmentId: config.compartmentId,
         instanceId: id
     }
 
