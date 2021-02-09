@@ -9,7 +9,8 @@ const imageIdCPU =
     "ocid1.image.oc1.eu-frankfurt-1.aaaaaaaa5w2lrmsn6wpjn7fbqv55curiarwsryqhoj4dw5hsixrl37hrinja" //VM Standard image ID
 const imageIdGPU =
     "ocid1.image.oc1.eu-frankfurt-1.aaaaaaaa5w2lrmsn6wpjn7fbqv55curiarwsryqhoj4dw5hsixrl37hrinja" // VM GPU image ID
-const publicKeySSH = "ssh-rsa MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsh/1dig1DU0FoLD/WM1323Q12y0simMjFEzyo/WjYomMHgvMCjRNhzpjVGwo2ckk6CR0aiVLbPYkw72v2S0SN0BCos2T7ysjVz+lJt3JnJHuArAdy63L5G3Hs+nsHTfshyC5x+WWxlFaYhmIx1RkdYolXXqzGxcMtKizskwrevz8NoZRmax+pYm5G5L8x/QTCHyiXADFuDlq72LlRBeEH72eY+SleP/+RbSjsZn4R7/RMZuZ03jJKGSS8hmYX+fg/5pVI7l/XpVUnSQZz3rBfR43VNMnYuRqHGCidhf9dHb7LisW/WCj+cJyhMwCjV/rywaGCrE8dyYpow35/FRoVwIDAQAB" //public key of the user
+const publicKeySSH = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCte1+ZwUzx36hMRpFWYs0a3MO5bkEnWxFA+UTwMoaD4rzbo2gX6LlnhMVWwsj6Obgx3m6nIror7LPdk4R/es+bgswFoSQJSJVmJu8+tneZ9EYySUBQ8ndsUDqOEo1Gav3EIkk5toNsRzRt8Ej7iuZJJNmHfEVJ2ADYIbC5xPo7DNW3vPz1UIreVqAk098Ma1LjcIf9HkJmLKGtWmEhGwsNZ4512eTudA8L2N998+/7gqXc3Z127U3pTSdt9cs7gxp4PIDrqC6uPIIg74dVSeoI4/vy8TDUrOTMgZbGGgN8KeL5rw7/nBSZtD9fZ6nnwaFta12Mrx0UyB0MeibcgZMF testoci" //public key of the user
+const AD = 0 //Availability domain, choose between 0,1 and 2
     //End Config for the OCI instance
 
 //Cloud init script
@@ -24,3 +25,4 @@ exports.imageIdCPU = imageIdCPU
 exports.imageIdGPU = imageIdGPU
 exports.publicKeySSH = publicKeySSH
 exports.scriptPath = scriptPath
+exports.AD = AD

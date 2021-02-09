@@ -12,7 +12,7 @@ const path = require('path')
 const fs = require('fs')
 
 //OCI configuration
-const config = require("./ociConfig.js")
+const config = require("./ociConfig")
 
 //Cloud init script
 const scriptPath = config.scriptPath
@@ -129,12 +129,16 @@ async function provisionInstance(name, shape, ad) {
         } else throw 'Invalid shape selected'
 
         let pass = generateVNCPassword()
+        let data = await base64encodefile(scriptPath)
 
         const metadata = {
             ssh_authorized_keys: config.publicKeySSH,
-            user_data: base64encodefile(scriptPath),
+            user_data: data,
             myarg_vnc_password: pass
         }
+
+        console.log(metadata)
+
 
         const launchInstanceDetails = {
             compartmentId: config.compartmentId,
@@ -274,21 +278,21 @@ async function getPublicIP(id) {
 async function getInstances() {
     const availabilityDomains = await getAvailabilityDomains()
         //AD can be switched here (0, 1 or 2)
-    const listInstances = await getInstancesInAD(availabilityDomains[0].name)
+    const listInstances = await getInstancesInAD(availabilityDomains[config.AD].name)
     return listInstances
 }
 
 async function getShapes() {
     const availabilityDomains = await getAvailabilityDomains()
         //AD can be switched here (0, 1 or 2)
-    const shapes = await getShapesInAD(availabilityDomains[0].name)
+    const shapes = await getShapesInAD(availabilityDomains[config.AD].name)
     return shapes
 }
 
 async function createInstance(name, shape) {
     const availabilityDomains = await getAvailabilityDomains()
         //AD can be switched here (0, 1 or 2)
-    const newInstance = await provisionInstance(name, shape, availabilityDomains[0].name)
+    const newInstance = await provisionInstance(name, shape, availabilityDomains[config.AD].name)
     return newInstance
 }
 
@@ -315,21 +319,25 @@ const generateVNCPassword = () => {
 }
 
 //Base64 encode the Cloud init script
-const base64encodefile = script => {
-    // path to the file we passed in
-    const filepath = path.resolve(script);
+function base64encodefile(script) {
+    return new Promise((resolve, reject) => {
+        // path to the file we passed in
+        const filepath = path.resolve(script);
 
-    // get the mimetype
-    const filemime = mime.getType(filepath);
+        // get the mimetype
+        const filemime = mime.getType(filepath);
 
-    fs.readFile(filepath, { encoding: 'base64' }, (err, data) => {
-        if (err) {
-            throw err;
-        }
-        //console.log(`data:${filemime};base64,${data}`);
-        return `${data}`
-    });
+        fs.readFile(filepath, { encoding: 'base64' }, (err, data) => {
+            if (err) {
+                throw err;
+            }
+            //console.log(`data:${filemime};base64,${data}`);
+            resolve(`${data}`)
+        });
+    })
 }
+
+
 
 //Function exports
 module.exports.getInstances = getInstances
