@@ -1,30 +1,25 @@
 'use strict';
-module.exports = function(app) {
-    var fls = require('../controllers/flsController');
+const express = require('express'),
+    router = express.Router(),
+    fls = require('../controllers/flsController')
 
-    // Instance Routes
-    app.route('/instances')
-        .post(fls.create_a_new_instance)
+// Instance Routes
+router.post('/instances', fls.create_a_new_instance)
 
-    app.route('/getinstances')
-        .post(fls.list_all_instances)
+router.post('/getinstances', fls.list_all_instances)
 
-    app.route('/instances/:InstanceId')
-        .delete(fls.delete_an_instance)
+router.delete('/instances/:InstanceId', fls.delete_an_instance)
 
-    //Shapes Route
-    app.route('/shapes')
-        .get(fls.list_all_shapes_in_ad)
+//Shapes Route
+router.get('/shapes', fls.list_all_shapes_in_ad)
 
-    //Start Route
-    app.route('/start/:InstanceId')
-        .get(fls.start_an_instance)
+//Start Route
+router.get('/start/:InstanceId', fls.start_an_instance)
 
-    //Stop Route
-    app.route('/stop/:InstanceId')
-        .get(fls.stop_an_instance)
+//Stop Route
+router.get('/stop/:InstanceId', fls.stop_an_instance)
 
-    //Get Public IP Route
-    app.route('/publicip/:InstanceId')
-        .get(fls.get_ip_of_instance)
-};
+//Get Public IP Route
+router.get('/publicip/:InstanceId', fls.get_ip_of_instance)
+
+module.exports = router

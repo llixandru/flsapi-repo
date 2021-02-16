@@ -139,7 +139,8 @@ async function provisionInstance(name, shape, ad, userEmail) {
         const metadata = {
             ssh_authorized_keys: config.publicKeySSH,
             user_data: data,
-            myarg_vnc_password: pass
+            myarg_vnc_password: pass,
+            myarg_fss_apps: config.appsFss
         }
 
         const launchInstanceDetails = {
