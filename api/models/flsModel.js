@@ -11,6 +11,9 @@ const mime = require('mime')
 const path = require('path')
 const fs = require('fs')
 
+//Freeform tags
+const tagKey = "owner"
+
 //OCI configuration
 const config = require("./ociConfig")
 
@@ -61,7 +64,7 @@ async function getAvailabilityDomains() {
 }
 
 //get instances
-async function getInstancesInAD(ad) {
+async function getInstancesInAD(ad, userEmail) {
     try {
         // Create a request and dependent object(s).
         const listInstancesRequest = core.requests.ListInstancesRequest = {
@@ -71,11 +74,13 @@ async function getInstancesInAD(ad) {
         // Send request to the Client.
         const listInstancesResponse = await computeClient.listInstances(listInstancesRequest)
         let instancesNotTerminated = new Array
-
-        //Filter the instances not TERMINATING or TERMINATED
+            // Filter the instances not TERMINATING or TERMINATED and belonging to current user
         for (let instance of listInstancesResponse.items) {
-            if (!instance.lifecycleState.includes("TERM")) {
-                instancesNotTerminated.push(instance)
+            if (
+                instance.freeformTags[tagKey] === userEmail &&
+                !instance.lifecycleState.includes("TERMIN")
+            ) {
+                instancesNotTerminated.push(instance);
             }
         }
 
@@ -112,21 +117,21 @@ async function getShapesInAD(ad) {
 }
 
 //create new instance
-async function provisionInstance(name, shape, ad) {
+async function provisionInstance(name, shape, ad, userEmail) {
     try {
         //Pick the right Image ID depending on whether the user has selected Standard or GPU VM
         let sourceDetails = ""
-        if (shape.includes("Standard")) {
-            sourceDetails = {
-                sourceType: "image",
-                imageId: config.imageIdCPU
-            }
-        } else if (shape.includes("GPU")) {
+        if (shape.includes("GPU")) {
             sourceDetails = {
                 sourceType: "image",
                 imageId: config.imageIdGPU
             }
-        } else throw 'Invalid shape selected'
+        } else {
+            sourceDetails = {
+                sourceType: "image",
+                imageId: config.imageIdCPU
+            }
+        }
 
         let pass = generateVNCPassword()
         let data = await base64encodefile(scriptPath)
@@ -146,7 +151,8 @@ async function provisionInstance(name, shape, ad) {
             createVnicDetails: {
                 subnetId: config.subnetId,
             },
-            metadata: metadata
+            metadata: metadata,
+            freeformTags: { "owner": userEmail }
         }
 
         //launch the provisioning request
@@ -272,10 +278,10 @@ async function getPublicIP(id) {
 }
 
 //Functions for export
-async function getInstances() {
+async function getInstances(userEmail) {
     const availabilityDomains = await getAvailabilityDomains()
         //AD can be switched here (0, 1 or 2)
-    const listInstances = await getInstancesInAD(availabilityDomains[config.AD].name)
+    const listInstances = await getInstancesInAD(availabilityDomains[config.AD].name, userEmail)
     return listInstances
 }
 
@@ -286,10 +292,10 @@ async function getShapes() {
     return shapes
 }
 
-async function createInstance(name, shape) {
+async function createInstance(name, shape, userEmail) {
     const availabilityDomains = await getAvailabilityDomains()
         //AD can be switched here (0, 1 or 2)
-    const newInstance = await provisionInstance(name, shape, availabilityDomains[config.AD].name)
+    const newInstance = await provisionInstance(name, shape, availabilityDomains[config.AD].name, userEmail)
     return newInstance
 }
 
@@ -330,7 +336,7 @@ function base64encodefile(script) {
             }
             //console.log(`data:${filemime};base64,${data}`);
             resolve(`${data}`)
-        });
+        })
     })
 }
 

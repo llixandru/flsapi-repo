@@ -4,8 +4,10 @@ module.exports = function(app) {
 
     // Instance Routes
     app.route('/instances')
-        .get(fls.list_all_instances)
         .post(fls.create_a_new_instance)
+
+    app.route('/getinstances')
+        .post(fls.list_all_instances)
 
     app.route('/instances/:InstanceId')
         .delete(fls.delete_an_instance)

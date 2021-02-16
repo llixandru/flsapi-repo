@@ -1,13 +1,10 @@
 var express = require('express'),
     app = express(),
     port = process.env.PORT || 3000,
-    //mongoose = require('mongoose'),
+    protocol = process.env.PROTOCOL || 'https',
     oci = require('./api/models/flsModel'), //created model loading here
     bodyParser = require('body-parser');
 var cors = require('cors')
-    // mongoose instance connection url connection
-    //mongoose.Promise = global.Promise;
-    //mongoose.connect('mongodb://localhost/flsdb');
 
 
 app.use(bodyParser.urlencoded({ extended: true }));
