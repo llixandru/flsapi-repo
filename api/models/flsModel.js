@@ -1,15 +1,17 @@
 'use strict'
 
 //OCI
-const core = require("oci-core")
-const identity = require("oci-identity")
-const wr = require("oci-workrequests")
-const common = require("oci-common")
-const util = require("util")
-const RandExp = require('randexp')
-const mime = require('mime')
-const path = require('path')
-const fs = require('fs')
+const core = require("oci-core"),
+    identity = require("oci-identity"),
+    wr = require("oci-workrequests"),
+    objectstorage = require("oci-objectstorage"),
+    common = require("oci-common"),
+    util = require("util"),
+    RandExp = require('randexp'),
+    mime = require('mime'),
+    path = require('path'),
+    fs = require('fs')
+
 
 //Freeform tags
 const tagKey = "owner"
@@ -46,7 +48,27 @@ const workRequestClient = new wr.WorkRequestClient({
     authenticationDetailsProvider: provider
 })
 
+//object storage client
+const objectStorageClient = new objectstorage.ObjectStorageClient({
+    authenticationDetailsProvider: provider,
+})
+
 const computeWaiter = computeClient.createWaiters(workRequestClient)
+
+//Get namespace
+async function getOsNamespace() {
+    try {
+        // Create a request and dependent object(s).
+        const request = (objectstorage.requests.GetNamespaceRequest = {
+            compartmentId: config.compartmentId
+        })
+        const response = await objectStorageClient.getNamespace(request)
+        return response.value
+    } catch (error) {
+        console.log("getNamespace failed with error  " + error)
+        throw error
+    }
+}
 
 //get the list of availabilityDomains
 async function getAvailabilityDomains() {
@@ -136,11 +158,17 @@ async function provisionInstance(name, shape, ad, userEmail) {
         let pass = generateVNCPassword()
         let data = await base64encodefile(scriptPath)
 
+        let namespace = await getOsNamespace()
+
         const metadata = {
             ssh_authorized_keys: config.publicKeySSH,
             user_data: data,
             myarg_vnc_password: pass,
-            myarg_fss_apps: config.appsFss
+            myarg_fss_apps: config.appsFss,
+            myarg_bucket: config.bucketName,
+            myarg_access_key: config.accessKey,
+            myarg_secret_key: config.secretKey,
+            myarg_os_namespace: namespace
         }
 
         const launchInstanceDetails = {

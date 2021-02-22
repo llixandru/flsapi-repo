@@ -1,36 +1,35 @@
 var express = require('express'),
     app = express(),
-    protocol = process.env.PROTOCOL || 'https',
+    protocol = process.env.PROTOCOL || 'http',
     port = process.env.PORT || '3000',
     host = process.env.HOST || 'localhost',
     bodyParser = require('body-parser'),
     fs = require('fs'),
     cors = require('cors'),
-    UserModel = require('./authentication/models/authModel'),
-    mongoose = require('mongoose'),
-    passport = require('passport')
+    jwt = require('express-jwt'),
+    jwks = require('jwks-rsa')
 
-require('./authentication/controllers/authController')
 
-//Database connect
-mongoose.connect("mongodb://127.0.0.1:27017/passport-jwt", {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
+let jwtCheck = jwt({
+    secret: jwks.expressJwtSecret({
+        cache: true,
+        rateLimit: true,
+        jwksRequestsPerMinute: 5,
+        jwksUri: 'https://dev-bbijppeg.eu.auth0.com/.well-known/jwks.json'
+    }),
+    audience: 'http://localhost:3000',
+    issuer: 'https://dev-bbijppeg.eu.auth0.com/',
+    algorithms: ['RS256']
 })
-mongoose.set("useCreateIndex", true)
-mongoose.connection.on('error', error => console.log(error))
-mongoose.Promise = global.Promise
 
+app.use(jwtCheck)
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
 app.use(cors())
 
-const routes = require('./authentication/routes/authRoutes')
 const secureRoute = require('./api/routes/flsRoutes')
 
-app.use('/', routes)
-    // Plug in the JWT strategy as a middleware so only verified users can access this route.
-app.use('/oci', passport.authenticate('jwt', { session: false }), secureRoute);
+app.use('/oci', secureRoute);
 
 let server
 

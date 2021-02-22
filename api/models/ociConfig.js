@@ -12,6 +12,9 @@ const imageIdGPU =
 const publicKeySSH = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCte1+ZwUzx36hMRpFWYs0a3MO5bkEnWxFA+UTwMoaD4rzbo2gX6LlnhMVWwsj6Obgx3m6nIror7LPdk4R/es+bgswFoSQJSJVmJu8+tneZ9EYySUBQ8ndsUDqOEo1Gav3EIkk5toNsRzRt8Ej7iuZJJNmHfEVJ2ADYIbC5xPo7DNW3vPz1UIreVqAk098Ma1LjcIf9HkJmLKGtWmEhGwsNZ4512eTudA8L2N998+/7gqXc3Z127U3pTSdt9cs7gxp4PIDrqC6uPIIg74dVSeoI4/vy8TDUrOTMgZbGGgN8KeL5rw7/nBSZtD9fZ6nnwaFta12Mrx0UyB0MeibcgZMF testoci" //public key of the user
 const AD = 0 //Availability domain, choose between 0,1 and 2
 const appsFss = "10.0.0.6:/fls-app-fss"
+const accessKey = "xxx"
+const secretKey = "xxx"
+const bucketName = "xxxx"
     //End Config for the OCI instance
 
 //Cloud init script
@@ -28,3 +31,6 @@ exports.publicKeySSH = publicKeySSH
 exports.scriptPath = scriptPath
 exports.AD = AD
 exports.appsFss = appsFss
+exports.accessKey = accessKey
+exports.secretKey = secretKey
+exports.bucketName = bucketName
