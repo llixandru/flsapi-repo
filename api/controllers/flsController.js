@@ -80,3 +80,36 @@ exports.get_ip_of_instance = function(req, res) {
         })
     })
 };
+
+exports.get_regions = function(req, res) {
+    oci.getRegions().then(regions => {
+        res.json(regions);
+    }, error => {
+        res.status(409).json({
+            status: false,
+            error: error
+        })
+    })
+};
+
+exports.change_regions = function(req, res) {
+    oci.changeRegion(req.body.region).then(newRegion => {
+        res.json(newRegion);
+    }, error => {
+        res.status(409).json({
+            status: false,
+            error: error
+        })
+    })
+};
+
+exports.get_current_region = function(req, res) {
+    oci.getCurrentRegion().then(region => {
+        res.json(region);
+    }, error => {
+        res.status(409).json({
+            status: false,
+            error: error
+        })
+    })
+};

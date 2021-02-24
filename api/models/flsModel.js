@@ -1,6 +1,7 @@
 'use strict'
 
-//OCI
+const { constants } = require("buffer")
+    //OCI
 const core = require("oci-core"),
     identity = require("oci-identity"),
     wr = require("oci-workrequests"),
@@ -22,43 +23,19 @@ const config = require("./ociConfig")
 //Cloud init script
 const scriptPath = config.scriptPath
 
-//credentials
-const provider = new common.ConfigFileAuthenticationDetailsProvider(
-    config.configurationFilePath,
-    config.configProfile
-)
-
-//identity client
-const identityClient = new identity.IdentityClient({
-    authenticationDetailsProvider: provider
-})
-
-//compute client
-const computeClient = new core.ComputeClient({
-    authenticationDetailsProvider: provider
-})
-
-//virtual network client
-const virtualNetworkClient = new core.VirtualNetworkClient({
-    authenticationDetailsProvider: provider
-})
-
-//worker
-const workRequestClient = new wr.WorkRequestClient({
-    authenticationDetailsProvider: provider
-})
-
-//object storage client
-const objectStorageClient = new objectstorage.ObjectStorageClient({
-    authenticationDetailsProvider: provider,
-})
-
-const computeWaiter = computeClient.createWaiters(workRequestClient)
-
 //Get namespace
 async function getOsNamespace() {
     try {
-        // Create a request and dependent object(s).
+        //credentials
+        const provider = new common.ConfigFileAuthenticationDetailsProvider(
+                config.configurationFilePath,
+                config.configProfile
+            )
+            //object storage client
+        const objectStorageClient = new objectstorage.ObjectStorageClient({
+                authenticationDetailsProvider: provider,
+            })
+            // Create a request and dependent object(s).
         const request = (objectstorage.requests.GetNamespaceRequest = {
             compartmentId: config.compartmentId
         })
@@ -70,9 +47,59 @@ async function getOsNamespace() {
     }
 }
 
-//get the list of availabilityDomains
+//Get available regions
+async function getRegionsInTenant() {
+    try {
+        //credentials
+        const provider = new common.ConfigFileAuthenticationDetailsProvider(
+                config.configurationFilePath,
+                config.configProfile
+            )
+            //identity
+        const identityClient = new identity.IdentityClient({
+                authenticationDetailsProvider: provider
+            })
+            // Create a request and dependent object(s).
+        const listRegionSubscriptionsRequest = identity.requests.ListRegionSubscriptionsRequest = {
+            tenancyId: config.tenancyId
+        }
+
+        // Send request to the Client.
+        const listRegionSubscriptionsResponse = await identityClient.listRegionSubscriptions(
+            listRegionSubscriptionsRequest
+        )
+
+        return listRegionSubscriptionsResponse
+    } catch (error) {
+        console.log("listRegions Failed with error  " + error)
+    }
+}
+
+//Change the Compute Client region
+async function changeComputeRegion(newRegion) {
+    try {
+        //Replace region in config file
+        let replacement = await changeRegionInConfigFile(newRegion)
+        return replacement
+    } catch (error) {
+        console.log("changeComputeRegion failed with error  " + error);
+        throw error
+    }
+}
+
+//Get the list of availabilityDomains
 async function getAvailabilityDomains() {
     try {
+        //credentials
+        const provider = new common.ConfigFileAuthenticationDetailsProvider(
+                config.configurationFilePath,
+                config.configProfile
+            )
+            //identity
+        const identityClient = new identity.IdentityClient({
+            authenticationDetailsProvider: provider
+        })
+
         const request = identity.requests.ListAvailabilityDomainsRequest = {
             compartmentId: config.compartmentId
         }
@@ -88,12 +115,22 @@ async function getAvailabilityDomains() {
 //get instances
 async function getInstancesInAD(ad, userEmail) {
     try {
-        // Create a request and dependent object(s).
+        //credentials
+        const provider = new common.ConfigFileAuthenticationDetailsProvider(
+            config.configurationFilePath,
+            config.configProfile
+        )
+
+        //compute client
+        const computeClient = new core.ComputeClient({
+                authenticationDetailsProvider: provider
+            })
+            // Create a request and dependent object(s).
         const listInstancesRequest = core.requests.ListInstancesRequest = {
-            compartmentId: config.compartmentId,
-            availabilityDomain: ad
-        };
-        // Send request to the Client.
+                compartmentId: config.compartmentId,
+                availabilityDomain: ad
+            }
+            // Send request to the Client.
         const listInstancesResponse = await computeClient.listInstances(listInstancesRequest)
         let instancesNotTerminated = new Array
             // Filter the instances not TERMINATING or TERMINATED and belonging to current user
@@ -116,7 +153,16 @@ async function getInstancesInAD(ad, userEmail) {
 //get shapes for a specific AD
 async function getShapesInAD(ad) {
     try {
-        // Create a request and dependent object(s).
+        //credentials
+        const provider = new common.ConfigFileAuthenticationDetailsProvider(
+                config.configurationFilePath,
+                config.configProfile
+            )
+            //compute client
+        const computeClient = new core.ComputeClient({
+                authenticationDetailsProvider: provider
+            })
+            // Create a request and dependent object(s).
         const request = core.requests.ListShapesRequest = {
             availabilityDomain: ad,
             compartmentId: config.compartmentId
@@ -141,17 +187,34 @@ async function getShapesInAD(ad) {
 //create new instance
 async function provisionInstance(name, shape, ad, userEmail) {
     try {
-        //Pick the right Image ID depending on whether the user has selected Standard or GPU VM
+        //credentials
+        const provider = new common.ConfigFileAuthenticationDetailsProvider(
+                config.configurationFilePath,
+                config.configProfile
+            )
+            //compute client
+        const computeClient = new core.ComputeClient({
+                authenticationDetailsProvider: provider
+            })
+            //worker
+        const workRequestClient = new wr.WorkRequestClient({
+                authenticationDetailsProvider: provider
+            })
+            //compute waiter
+        const computeWaiter = computeClient.createWaiters(workRequestClient)
+
+        //Pick the right image depending on whether the user has selected Standard or GPU VM
         let sourceDetails = ""
+
         if (shape.includes("GPU")) {
             sourceDetails = {
                 sourceType: "image",
-                imageId: config.imageIdGPU
+                imageId: await getImage(config.imageNameGPU)
             }
         } else {
             sourceDetails = {
                 sourceType: "image",
-                imageId: config.imageIdCPU
+                imageId: await getImage(config.imageNameCPU)
             }
         }
 
@@ -159,6 +222,8 @@ async function provisionInstance(name, shape, ad, userEmail) {
         let data = await base64encodefile(scriptPath)
 
         let namespace = await getOsNamespace()
+
+        let subnetId = await createNetwork()
 
         const metadata = {
             ssh_authorized_keys: config.publicKeySSH,
@@ -178,7 +243,7 @@ async function provisionInstance(name, shape, ad, userEmail) {
             displayName: name,
             sourceDetails: sourceDetails,
             createVnicDetails: {
-                subnetId: config.subnetId,
+                subnetId: subnetId
             },
             metadata: metadata,
             freeformTags: { "owner": userEmail }
@@ -211,8 +276,19 @@ async function provisionInstance(name, shape, ad, userEmail) {
     }
 }
 
+//Terminate an instance
 async function terminateInstance(id) {
     try {
+        //credentials
+        const provider = new common.ConfigFileAuthenticationDetailsProvider(
+                config.configurationFilePath,
+                config.configProfile
+            )
+            //compute client
+        const computeClient = new core.ComputeClient({
+            authenticationDetailsProvider: provider
+        })
+
         // Create a request and dependent object(s).
         const terminateInstanceRequest = core.requests.TerminateInstanceRequest = {
             instanceId: id,
@@ -231,6 +307,22 @@ async function terminateInstance(id) {
 //Start an instance
 async function startInstanceWithId(id) {
     try {
+        //credentials
+        const provider = new common.ConfigFileAuthenticationDetailsProvider(
+                config.configurationFilePath,
+                config.configProfile
+            )
+            //compute client
+        const computeClient = new core.ComputeClient({
+                authenticationDetailsProvider: provider
+            })
+            //worker
+        const workRequestClient = new wr.WorkRequestClient({
+                authenticationDetailsProvider: provider
+            })
+            //compute waiter
+        const computeWaiter = computeClient.createWaiters(workRequestClient)
+
         const startInstanceRequest = core.requests.InstanceActionRequest = {
             instanceId: id,
             action: "START"
@@ -252,6 +344,22 @@ async function startInstanceWithId(id) {
 //Stop an instance
 async function stopInstanceWithId(id) {
     try {
+        //credentials
+        const provider = new common.ConfigFileAuthenticationDetailsProvider(
+                config.configurationFilePath,
+                config.configProfile
+            )
+            //compute client
+        const computeClient = new core.ComputeClient({
+                authenticationDetailsProvider: provider
+            })
+            //worker
+        const workRequestClient = new wr.WorkRequestClient({
+                authenticationDetailsProvider: provider
+            })
+            //compute waiter
+        const computeWaiter = computeClient.createWaiters(workRequestClient)
+
         const stopInstanceRequest = core.requests.InstanceActionRequest = {
             instanceId: id,
             action: "SOFTSTOP"
@@ -273,6 +381,20 @@ async function stopInstanceWithId(id) {
 //Get Public IP of instance
 async function getPublicIP(id) {
     try {
+        //credentials
+        const provider = new common.ConfigFileAuthenticationDetailsProvider(
+                config.configurationFilePath,
+                config.configProfile
+            )
+            //compute client
+        const computeClient = new core.ComputeClient({
+                authenticationDetailsProvider: provider
+            })
+            //virtual network client
+        const virtualNetworkClient = new core.VirtualNetworkClient({
+            authenticationDetailsProvider: provider
+        })
+
         const listVnicAttachmentsRequest = {
             compartmentId: config.compartmentId,
             instanceId: id
@@ -306,24 +428,121 @@ async function getPublicIP(id) {
     }
 }
 
+//Create VCN and subnet for new instance
+async function createNetwork() {
+    //credentials
+    const provider = new common.ConfigFileAuthenticationDetailsProvider(
+            config.configurationFilePath,
+            config.configProfile
+        )
+        //VCN client
+    const virtualNetworkClient = new core.VirtualNetworkClient({
+            authenticationDetailsProvider: provider
+        })
+        //worker
+    const workRequestClient = new wr.WorkRequestClient({
+            authenticationDetailsProvider: provider
+        })
+        //VCN waiter
+    const virtualNetworkWaiter = virtualNetworkClient.createWaiters(workRequestClient)
+
+    let vcnId = null
+    let subnetId = null
+
+    const createVcnDetails = core.models.CreateVcnDetails = {
+        cidrBlock: "10.0.0.0/16",
+        compartmentId: config.compartmentId,
+        displayName: "flsvcn-" + Date.now()
+    }
+
+    const createVcnRequest = core.requests.CreateVcnRequest = {
+        createVcnDetails: createVcnDetails
+    }
+
+    const createVcnResponse = await virtualNetworkClient.createVcn(createVcnRequest)
+
+    const getVcnRequest = core.requests.GetVcnRequest = {
+        vcnId: createVcnResponse.vcn.id
+    }
+
+    const getVcnResponse = await virtualNetworkWaiter.forVcn(
+        getVcnRequest,
+        core.models.Vcn.LifecycleState.Available
+    )
+
+    vcnId = getVcnResponse.vcn.id
+
+    const createSubnetRequest = core.requests.CreateSubnetRequest = {
+        createSubnetDetails: {
+            cidrBlock: "10.0.0.0/16",
+            compartmentId: config.compartmentId,
+            displayName: "flssubnet-" + Date.now(),
+            vcnId: createVcnResponse.vcn.id
+        }
+    }
+
+    const createSubnetResponse = await virtualNetworkClient.createSubnet(createSubnetRequest)
+
+    const getSubnetRequest = core.requests.GetSubnetRequest = {
+        subnetId: createSubnetResponse.subnet.id
+    }
+
+    await virtualNetworkWaiter.forSubnet(
+        getSubnetRequest,
+        core.models.Subnet.LifecycleState.Available
+    )
+
+    subnetId = createSubnetResponse.subnet.id
+
+    return subnetId
+}
+
+//Get image ID
+async function getImage(name) {
+    //credentials
+    const provider = new common.ConfigFileAuthenticationDetailsProvider(
+            config.configurationFilePath,
+            config.configProfile
+        )
+        //compute client
+    const computeClient = new core.ComputeClient({
+        authenticationDetailsProvider: provider
+    })
+
+    const request = core.requests.ListImagesRequest = {
+        compartmentId: config.compartmentId,
+        displayName: name
+    }
+
+    const response = await computeClient.listImages(request)
+    return response.items[0].id
+}
+
 //Functions for export
+async function getRegions() {
+    const listRegions = await getRegionsInTenant()
+    return listRegions
+}
+
+async function changeRegion(region) {
+    const newRegion = await changeComputeRegion(region)
+    return newRegion
+}
+
 async function getInstances(userEmail) {
     const availabilityDomains = await getAvailabilityDomains()
-        //AD can be switched here (0, 1 or 2)
     const listInstances = await getInstancesInAD(availabilityDomains[config.AD].name, userEmail)
     return listInstances
 }
 
 async function getShapes() {
     const availabilityDomains = await getAvailabilityDomains()
-        //AD can be switched here (0, 1 or 2)
     const shapes = await getShapesInAD(availabilityDomains[config.AD].name)
     return shapes
 }
 
 async function createInstance(name, shape, userEmail) {
     const availabilityDomains = await getAvailabilityDomains()
-        //AD can be switched here (0, 1 or 2)
     const newInstance = await provisionInstance(name, shape, availabilityDomains[config.AD].name, userEmail)
     return newInstance
 }
@@ -343,6 +562,12 @@ async function stopInstance(id) {
     return stopInst
 }
 
+//Get current region
+async function getCurrentRegion() {
+    let region = await getRegionFromConfig()
+    return region
+}
+
 //helper functions
 
 //generate password with 2 uppercase characters, 2 lowercase characters, 6 random characters and 2 special characters
@@ -354,10 +579,10 @@ const generateVNCPassword = () => {
 function base64encodefile(script) {
     return new Promise((resolve, reject) => {
         // path to the file we passed in
-        const filepath = path.resolve(script);
+        const filepath = path.resolve(script)
 
         // get the mimetype
-        const filemime = mime.getType(filepath);
+        const filemime = mime.getType(filepath)
 
         fs.readFile(filepath, { encoding: 'base64' }, (err, data) => {
             if (err) {
@@ -369,7 +594,44 @@ function base64encodefile(script) {
     })
 }
 
+//change the region in the config file to re-register the provider on the new region
+function changeRegionInConfigFile(region) {
+    return new Promise((resolve, reject) => {
+        const filepath = path.resolve(config.configFileForFsWrite)
+        fs.readFile(filepath, 'utf8', function(err, data) {
+            if (err) {
+                return console.log(err)
+            }
 
+            let searchString = 'region';
+            let re = new RegExp('^.*' + searchString + '.*$', 'gm');
+            let formatted = data.replace(re, 'region=' + region);
+
+            fs.writeFile(filepath, formatted, 'utf8', function(err) {
+                resolve(region)
+                if (err) return console.log(err)
+            })
+        })
+    })
+}
+
+//return current region from the config file
+function getRegionFromConfig() {
+    return new Promise((resolve, reject) => {
+        const filepath = path.resolve(config.configFileForFsWrite)
+        fs.readFile(filepath, 'utf8', function(err, data) {
+            if (err) {
+                return console.log(err)
+            }
+
+            let searchString = 'region=';
+            let re = new RegExp('^.*' + searchString + '.*$', 'gm')
+            let string = data.match(re)[0]
+            string = string.split('=')[1]
+            resolve(string)
+        })
+    })
+}
 
 //Function exports
 module.exports.getInstances = getInstances
@@ -379,3 +641,6 @@ module.exports.deleteInstance = deleteInstance
 module.exports.startInstance = startInstance
 module.exports.stopInstance = stopInstance
 module.exports.getPublicIP = getPublicIP
+module.exports.getRegions = getRegions
+module.exports.changeRegion = changeRegion
+module.exports.getCurrentRegion = getCurrentRegion

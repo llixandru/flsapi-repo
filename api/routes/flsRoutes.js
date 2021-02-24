@@ -22,4 +22,13 @@ router.get('/stop/:InstanceId', fls.stop_an_instance)
 //Get Public IP Route
 router.get('/publicip/:InstanceId', fls.get_ip_of_instance)
 
+//Get Regions
+router.get('/regions', fls.get_regions)
+
+//Change Region
+router.post('/regions', fls.change_regions)
+
+//Get Current Region
+router.get('/currentregion', fls.get_current_region)
+
 module.exports = router
