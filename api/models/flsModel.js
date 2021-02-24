@@ -223,8 +223,6 @@ async function provisionInstance(name, shape, ad, userEmail) {
 
         let namespace = await getOsNamespace()
 
-        let subnetId = await createNetwork()
-
         const metadata = {
             ssh_authorized_keys: config.publicKeySSH,
             user_data: data,
@@ -243,7 +241,7 @@ async function provisionInstance(name, shape, ad, userEmail) {
             displayName: name,
             sourceDetails: sourceDetails,
             createVnicDetails: {
-                subnetId: subnetId
+                subnetId: config.subnetId
             },
             metadata: metadata,
             freeformTags: { "owner": userEmail }
