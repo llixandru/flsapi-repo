@@ -157,11 +157,14 @@ async function getShapesInAD(region, ad) {
         let availableShapes = new Array
 
         //Filter the shapes by those starting with "VM"
-        for (let shape of response.items) {
-            if (!shape.shape.includes("Flex")) {
-                availableShapes.push(shape)
-            }
-        }
+
+        let res = response.items
+
+        res.forEach(element => {
+            if ((element.shape.includes("GPU")) || (element.shape.includes("BM.HPC2.36")) || (element.shape === "VM.Standard2.1") || (element.shape.includes("VM.Standard2.8")))
+                availableShapes.push(element)
+        })
+
         return availableShapes
     } catch (error) {
         console.log("getShapes failed with error  " + error);
