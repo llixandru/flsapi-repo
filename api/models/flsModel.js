@@ -13,7 +13,7 @@ const core = require("oci-core"),
     fs = require('fs'),
     images = require('../config/images.json'),
     subnets = require('../config/subnets.json'),
-    config = require("./ociConfig"),
+    config = require("../config/ociConfig"),
     tagKey = "owner"
 
 //Cloud init script
