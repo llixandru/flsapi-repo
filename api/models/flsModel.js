@@ -447,11 +447,6 @@ async function getRegions() {
     return listRegions
 }
 
-async function changeRegion(region) {
-    const region = await changeClientsRegion(region)
-    return region
-}
-
 async function getInstances(region, userEmail) {
     const availabilityDomains = await getAvailabilityDomains(region)
     const ad = ads[region]
