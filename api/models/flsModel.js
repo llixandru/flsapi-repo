@@ -12,7 +12,9 @@ const core = require("oci-core"),
     fs = require('fs'),
     images = require('../config/images.json'),
     subnets = require('../config/subnets.json'),
+    appsFss = require('../config/fss.json'),
     config = require("../config/ociConfig"),
+    ads = require("../config/ad.json"),
     tagKey = "owner"
 
 //Cloud init script
@@ -214,7 +216,7 @@ async function provisionInstance(region, name, shape, ad, userEmail) {
             ssh_authorized_keys: config.publicKeySSH,
             user_data: data,
             myarg_vnc_password: pass,
-            myarg_fss_apps: config.appsFss,
+            myarg_fss_apps: appsFss[region],
             myarg_bucket: config.bucketName,
             myarg_access_key: config.accessKey,
             myarg_secret_key: config.secretKey,
@@ -452,19 +454,22 @@ async function changeRegion(region) {
 
 async function getInstances(region, userEmail) {
     const availabilityDomains = await getAvailabilityDomains(region)
-    const listInstances = await getInstancesInAD(region, availabilityDomains[config.AD].name, userEmail)
+    const ad = ads[region]
+    const listInstances = await getInstancesInAD(region, availabilityDomains[ad].name, userEmail)
     return listInstances
 }
 
 async function getShapes(region) {
     const availabilityDomains = await getAvailabilityDomains(region)
-    const shapes = await getShapesInAD(region, availabilityDomains[config.AD].name)
+    const ad = ads[region]
+    const shapes = await getShapesInAD(region, availabilityDomains[ad].name)
     return shapes
 }
 
 async function createInstance(region, name, shape, userEmail) {
     const availabilityDomains = await getAvailabilityDomains(region)
-    const newInstance = await provisionInstance(region, name, shape, availabilityDomains[config.AD].name, userEmail)
+    const ad = ads[region]
+    const newInstance = await provisionInstance(region, name, shape, availabilityDomains[ad].name, userEmail)
     return newInstance
 }
 
