@@ -1,7 +1,6 @@
 'use strict'
 
-const { constants } = require("buffer")
-    //OCI
+//OCI
 const core = require("oci-core"),
     identity = require("oci-identity"),
     wr = require("oci-workrequests"),
