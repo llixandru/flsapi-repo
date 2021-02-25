@@ -3,8 +3,7 @@
 var oci = require("../models/flsModel")
 
 exports.list_all_instances = function(req, res) {
-    let owner = req.body.instanceOwner
-    oci.getInstances(owner).then(instances => {
+    oci.getInstances(req.body.region, req.body.instanceOwner).then(instances => {
         res.json(instances)
     }, error => {
         res.status(409).json({
@@ -15,8 +14,7 @@ exports.list_all_instances = function(req, res) {
 };
 
 exports.create_a_new_instance = function(req, res) {
-    let new_instance = req.body
-    oci.createInstance(new_instance.instanceName, new_instance.instanceShape, new_instance.instanceOwner).then(instance => {
+    oci.createInstance(req.body.region, req.body.instanceName, req.body.instanceShape, req.body.instanceOwner).then(instance => {
         res.json(instance);
     }, error => {
         res.status(409).json({
@@ -27,7 +25,7 @@ exports.create_a_new_instance = function(req, res) {
 };
 
 exports.delete_an_instance = function(req, res) {
-    oci.deleteInstance(req.params.InstanceId).then(instance => {
+    oci.deleteInstance(req.body.region, req.body.instanceId).then(instance => {
         res.json(instance);
     }, error => {
         res.status(409).json({
@@ -38,7 +36,7 @@ exports.delete_an_instance = function(req, res) {
 };
 
 exports.list_all_shapes_in_ad = function(req, res) {
-    oci.getShapes().then(shapes => {
+    oci.getShapes(req.body.region).then(shapes => {
         res.json(shapes);
     }, error => {
         res.status(409).json({
@@ -49,7 +47,7 @@ exports.list_all_shapes_in_ad = function(req, res) {
 };
 
 exports.start_an_instance = function(req, res) {
-    oci.startInstance(req.params.InstanceId).then(instance => {
+    oci.startInstance(req.body.region, req.body.instanceId).then(instance => {
         res.json(instance);
     }, error => {
         res.status(409).json({
@@ -60,7 +58,7 @@ exports.start_an_instance = function(req, res) {
 };
 
 exports.stop_an_instance = function(req, res) {
-    oci.stopInstance(req.params.InstanceId).then(instance => {
+    oci.stopInstance(req.body.region, req.body.instanceId).then(instance => {
         res.json(instance);
     }, error => {
         res.status(409).json({
@@ -71,7 +69,7 @@ exports.stop_an_instance = function(req, res) {
 };
 
 exports.get_ip_of_instance = function(req, res) {
-    oci.getPublicIP(req.params.InstanceId).then(instance => {
+    oci.getPublicIP(req.body.region, req.body.instanceId).then(instance => {
         res.json(instance);
     }, error => {
         res.status(409).json({
@@ -84,17 +82,6 @@ exports.get_ip_of_instance = function(req, res) {
 exports.get_regions = function(req, res) {
     oci.getRegions().then(regions => {
         res.json(regions);
-    }, error => {
-        res.status(409).json({
-            status: false,
-            error: error
-        })
-    })
-};
-
-exports.change_regions = function(req, res) {
-    oci.changeRegion(req.body.region).then(newRegion => {
-        res.json(newRegion);
     }, error => {
         res.status(409).json({
             status: false,

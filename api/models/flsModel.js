@@ -10,50 +10,29 @@ const core = require("oci-core"),
     RandExp = require('randexp'),
     mime = require('mime'),
     path = require('path'),
-    fs = require('fs')
-
-
-//Freeform tags
-const tagKey = "owner"
-
-//OCI configuration
-const config = require("./ociConfig")
+    fs = require('fs'),
+    images = require('../config/images.json'),
+    subnets = require('../config/subnets.json'),
+    config = require("./ociConfig"),
+    tagKey = "owner"
 
 //Cloud init script
 const scriptPath = config.scriptPath
 
 //credentials
 const provider = new common.ConfigFileAuthenticationDetailsProvider(
-        config.configurationFilePath,
-        config.configProfile
-    )
-    //object storage client
-const objectStorageClient = new objectstorage.ObjectStorageClient({
-        authenticationDetailsProvider: provider
-    })
-    //identity
-const identityClient = new identity.IdentityClient({
-        authenticationDetailsProvider: provider
-    })
-    //virtual network client
-const virtualNetworkClient = new core.VirtualNetworkClient({
-        authenticationDetailsProvider: provider
-    })
-    //compute client
-const computeClient = new core.ComputeClient({
-        authenticationDetailsProvider: provider
-    })
-    //worker
-const workRequestClient = new wr.WorkRequestClient({
-        authenticationDetailsProvider: provider
-    })
-    //compute waiter
-const computeWaiter = computeClient.createWaiters(workRequestClient)
+    config.configurationFilePath,
+    config.configProfile
+)
 
 //Get namespace
 async function getOsNamespace() {
     try {
-        // Create a request and dependent object(s).
+        //object storage client
+        const objectStorageClient = new objectstorage.ObjectStorageClient({
+                authenticationDetailsProvider: provider
+            })
+            // Create a request and dependent object(s).
         const request = (objectstorage.requests.GetNamespaceRequest = {
             compartmentId: config.compartmentId
         })
@@ -68,7 +47,11 @@ async function getOsNamespace() {
 //Get available regions
 async function getRegionsInTenant() {
     try {
-        // Create a request and dependent object(s).
+        //identity
+        const identityClient = new identity.IdentityClient({
+                authenticationDetailsProvider: provider
+            })
+            // Create a request and dependent object(s).
         const listRegionSubscriptionsRequest = identity.requests.ListRegionSubscriptionsRequest = {
             tenancyId: config.tenancyId
         }
@@ -84,30 +67,20 @@ async function getRegionsInTenant() {
     }
 }
 
-//Change the Compute Client region
-async function changeClientsRegion(newRegion) {
+//Get the list of availabilityDomains
+async function getAvailabilityDomains(region) {
     try {
-        //Replace region in config file
-        let reg = newRegion.toUpperCase()
+        //identity
+        const identityClient = new identity.IdentityClient({
+                authenticationDetailsProvider: provider
+            })
+            //Get region property
+        let reg = region.toUpperCase()
         reg = reg.replace(/-/g, '_')
 
         //Set the new region on clients
-        computeClient.region = common.Region[reg]
-        workRequestClient.region = common.Region[reg]
         identityClient.region = common.Region[reg]
-        objectStorageClient.region = common.Region[reg]
-        virtualNetworkClient.region = common.Region[reg]
 
-        return reg
-    } catch (error) {
-        console.log("changeClientsRegion failed with error  " + error);
-        throw error
-    }
-}
-
-//Get the list of availabilityDomains
-async function getAvailabilityDomains() {
-    try {
         const request = identity.requests.ListAvailabilityDomainsRequest = {
             compartmentId: config.compartmentId
         }
@@ -121,8 +94,19 @@ async function getAvailabilityDomains() {
 }
 
 //get instances
-async function getInstancesInAD(ad, userEmail) {
+async function getInstancesInAD(region, ad, userEmail) {
     try {
+        //compute client
+        const computeClient = new core.ComputeClient({
+                authenticationDetailsProvider: provider
+            })
+            //Get region property
+        let reg = region.toUpperCase()
+        reg = reg.replace(/-/g, '_')
+
+        //Set the new region on clients
+        computeClient.region = common.Region[reg]
+
         // Create a request and dependent object(s).
         const listInstancesRequest = core.requests.ListInstancesRequest = {
                 compartmentId: config.compartmentId,
@@ -149,8 +133,19 @@ async function getInstancesInAD(ad, userEmail) {
 }
 
 //get shapes for a specific AD
-async function getShapesInAD(ad) {
+async function getShapesInAD(region, ad) {
     try {
+        //compute client
+        const computeClient = new core.ComputeClient({
+                authenticationDetailsProvider: provider
+            })
+            //Get region property
+        let reg = region.toUpperCase()
+        reg = reg.replace(/-/g, '_')
+
+        //Set the new region on clients
+        computeClient.region = common.Region[reg]
+
         // Create a request and dependent object(s).
         const request = core.requests.ListShapesRequest = {
             availabilityDomain: ad,
@@ -174,20 +169,40 @@ async function getShapesInAD(ad) {
 }
 
 //create new instance
-async function provisionInstance(name, shape, ad, userEmail) {
+async function provisionInstance(region, name, shape, ad, userEmail) {
     try {
+        //compute client
+        const computeClient = new core.ComputeClient({
+                authenticationDetailsProvider: provider
+            })
+            //worker
+        const workRequestClient = new wr.WorkRequestClient({
+                authenticationDetailsProvider: provider
+            })
+            //compute waiter
+        const computeWaiter = computeClient.createWaiters(workRequestClient)
+
+        //Get region property
+        let reg = region.toUpperCase()
+        reg = reg.replace(/-/g, '_')
+
+        //Set the new region on clients
+        computeClient.region = common.Region[reg]
+        workRequestClient.region = common.Region[reg]
+
+
         //Pick the right Image depending on whether the user has selected Standard or GPU VM
         let sourceDetails = ""
 
         if (shape.includes("GPU")) {
             sourceDetails = {
                 sourceType: "image",
-                imageId: await getImage(config.imageNameGPU)
+                imageId: images[region].GPU
             }
         } else {
             sourceDetails = {
                 sourceType: "image",
-                imageId: await getImage(config.imageNameCPU)
+                imageId: images[region].CPU
             }
         }
 
@@ -214,7 +229,7 @@ async function provisionInstance(name, shape, ad, userEmail) {
             displayName: name,
             sourceDetails: sourceDetails,
             createVnicDetails: {
-                subnetId: config.subnetId
+                subnetId: subnets[region]
             },
             metadata: metadata,
             freeformTags: { "owner": userEmail }
@@ -248,8 +263,20 @@ async function provisionInstance(name, shape, ad, userEmail) {
 }
 
 //Terminate an instance
-async function terminateInstance(id) {
+async function terminateInstance(region, id) {
     try {
+        //compute client
+        const computeClient = new core.ComputeClient({
+            authenticationDetailsProvider: provider
+        })
+
+        //Get region property
+        let reg = region.toUpperCase()
+        reg = reg.replace(/-/g, '_')
+
+        //Set the new region on clients
+        computeClient.region = common.Region[reg]
+
         // Create a request and dependent object(s).
         const terminateInstanceRequest = core.requests.TerminateInstanceRequest = {
             instanceId: id,
@@ -266,8 +293,27 @@ async function terminateInstance(id) {
 }
 
 //Start an instance
-async function startInstanceWithId(id) {
+async function startInstanceWithId(region, id) {
     try {
+        //compute client
+        const computeClient = new core.ComputeClient({
+                authenticationDetailsProvider: provider
+            })
+            //worker
+        const workRequestClient = new wr.WorkRequestClient({
+                authenticationDetailsProvider: provider
+            })
+            //compute waiter
+        const computeWaiter = computeClient.createWaiters(workRequestClient)
+
+        //Get region property
+        let reg = region.toUpperCase()
+        reg = reg.replace(/-/g, '_')
+
+        //Set the new region on clients
+        computeClient.region = common.Region[reg]
+        workRequestClient.region = common.Region[reg]
+
         const startInstanceRequest = core.requests.InstanceActionRequest = {
             instanceId: id,
             action: "START"
@@ -287,8 +333,27 @@ async function startInstanceWithId(id) {
 }
 
 //Stop an instance
-async function stopInstanceWithId(id) {
+async function stopInstanceWithId(region, id) {
     try {
+        //compute client
+        const computeClient = new core.ComputeClient({
+                authenticationDetailsProvider: provider
+            })
+            //worker
+        const workRequestClient = new wr.WorkRequestClient({
+                authenticationDetailsProvider: provider
+            })
+            //compute waiter
+        const computeWaiter = computeClient.createWaiters(workRequestClient)
+
+        //Get region property
+        let reg = region.toUpperCase()
+        reg = reg.replace(/-/g, '_')
+
+        //Set the new region on clients
+        computeClient.region = common.Region[reg]
+        workRequestClient.region = common.Region[reg]
+
         const stopInstanceRequest = core.requests.InstanceActionRequest = {
             instanceId: id,
             action: "SOFTSTOP"
@@ -308,8 +373,25 @@ async function stopInstanceWithId(id) {
 }
 
 //Get Public IP of instance
-async function getPublicIP(id) {
+async function getPublicIP(region, id) {
     try {
+        //compute client
+        const computeClient = new core.ComputeClient({
+                authenticationDetailsProvider: provider
+            })
+            //virtual network client
+        const virtualNetworkClient = new core.VirtualNetworkClient({
+            authenticationDetailsProvider: provider
+        })
+
+        //Get region property
+        let reg = region.toUpperCase()
+        reg = reg.replace(/-/g, '_')
+
+        //Set the new region on clients
+        computeClient.region = common.Region[reg]
+        virtualNetworkClient.region = common.Region[reg]
+
         const listVnicAttachmentsRequest = {
             compartmentId: config.compartmentId,
             instanceId: id
@@ -345,6 +427,10 @@ async function getPublicIP(id) {
 
 //Get image ID
 async function getImage(name) {
+    //compute client
+    const computeClient = new core.ComputeClient({
+        authenticationDetailsProvider: provider
+    })
     const request = core.requests.ListImagesRequest = {
         compartmentId: config.compartmentId,
         displayName: name
@@ -361,40 +447,40 @@ async function getRegions() {
 }
 
 async function changeRegion(region) {
-    const newRegion = await changeClientsRegion(region)
-    return newRegion
+    const region = await changeClientsRegion(region)
+    return region
 }
 
-async function getInstances(userEmail) {
-    const availabilityDomains = await getAvailabilityDomains()
-    const listInstances = await getInstancesInAD(availabilityDomains[config.AD].name, userEmail)
+async function getInstances(region, userEmail) {
+    const availabilityDomains = await getAvailabilityDomains(region)
+    const listInstances = await getInstancesInAD(region, availabilityDomains[config.AD].name, userEmail)
     return listInstances
 }
 
-async function getShapes() {
-    const availabilityDomains = await getAvailabilityDomains()
-    const shapes = await getShapesInAD(availabilityDomains[config.AD].name)
+async function getShapes(region) {
+    const availabilityDomains = await getAvailabilityDomains(region)
+    const shapes = await getShapesInAD(region, availabilityDomains[config.AD].name)
     return shapes
 }
 
-async function createInstance(name, shape, userEmail) {
-    const availabilityDomains = await getAvailabilityDomains()
-    const newInstance = await provisionInstance(name, shape, availabilityDomains[config.AD].name, userEmail)
+async function createInstance(region, name, shape, userEmail) {
+    const availabilityDomains = await getAvailabilityDomains(region)
+    const newInstance = await provisionInstance(region, name, shape, availabilityDomains[config.AD].name, userEmail)
     return newInstance
 }
 
-async function deleteInstance(id) {
-    const deleteInstance = await terminateInstance(id)
+async function deleteInstance(region, id) {
+    const deleteInstance = await terminateInstance(region, id)
     return deleteInstance
 }
 
-async function startInstance(id) {
-    const startInst = await startInstanceWithId(id)
+async function startInstance(region, id) {
+    const startInst = await startInstanceWithId(region, id)
     return startInst
 }
 
-async function stopInstance(id) {
-    const stopInst = await stopInstanceWithId(id)
+async function stopInstance(region, id) {
+    const stopInst = await stopInstanceWithId(region, id)
     return stopInst
 }
 
@@ -478,5 +564,4 @@ module.exports.startInstance = startInstance
 module.exports.stopInstance = stopInstance
 module.exports.getPublicIP = getPublicIP
 module.exports.getRegions = getRegions
-module.exports.changeRegion = changeRegion
 module.exports.getCurrentRegion = getCurrentRegion
