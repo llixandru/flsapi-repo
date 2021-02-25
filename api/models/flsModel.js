@@ -515,27 +515,6 @@ function base64encodefile(script) {
     })
 }
 
-//change the region in the config file to re-register the provider on the new region
-function changeRegionInConfigFile(region) {
-    return new Promise((resolve, reject) => {
-        const filepath = path.resolve(config.configFileForFsWrite)
-        fs.readFile(filepath, 'utf8', function(err, data) {
-            if (err) {
-                return console.log(err)
-            }
-
-            let searchString = 'region';
-            let re = new RegExp('^.*' + searchString + '.*$', 'gm');
-            let formatted = data.replace(re, 'region=' + region);
-
-            fs.writeFile(filepath, formatted, 'utf8', function(err) {
-                resolve(region)
-                if (err) return console.log(err)
-            })
-        })
-    })
-}
-
 //return current region from the config file
 function getRegionFromConfig() {
     return new Promise((resolve, reject) => {
