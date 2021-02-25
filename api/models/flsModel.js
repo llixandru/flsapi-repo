@@ -54,7 +54,7 @@ async function getRegionsInTenant() {
             })
             // Create a request and dependent object(s).
         const listRegionSubscriptionsRequest = identity.requests.ListRegionSubscriptionsRequest = {
-            tenancyId: config.tenancyId
+            tenancyId: provider.delegate.tenancy
         }
 
         // Send request to the Client.
@@ -156,8 +156,7 @@ async function getShapesInAD(region, ad) {
         const response = await computeClient.listShapes(request)
         let availableShapes = new Array
 
-        //Filter the shapes by those starting with "VM"
-
+        //Filter the shapes
         let res = response.items
 
         res.forEach(element => {
