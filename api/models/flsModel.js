@@ -518,18 +518,7 @@ function base64encodefile(script) {
 //return current region from the config file
 function getRegionFromConfig() {
     return new Promise((resolve, reject) => {
-        const filepath = path.resolve(config.configFileForFsWrite)
-        fs.readFile(filepath, 'utf8', function(err, data) {
-            if (err) {
-                return console.log(err)
-            }
-
-            let searchString = 'region=';
-            let re = new RegExp('^.*' + searchString + '.*$', 'gm')
-            let string = data.match(re)[0]
-            string = string.split('=')[1]
-            resolve(string)
-        })
+        resolve(provider.delegate.region._regionId)
     })
 }
 

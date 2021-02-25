@@ -2,7 +2,6 @@
 
 //Config for the OCI instance (MODIFY HERE)
 const configurationFilePath = "~/.oci/config" //OCI config file
-const configFileForFsWrite = "../../../../.oci/config"
 const configProfile = "LIANA" //profile name
 const compartmentId = "ocid1.compartment.oc1..aaaaaaaa5uzjzuf3qwxayfc2pmjankhmygjus2sjgnrd3g47jxvyom3pu7va" //compartment ID
 const tenancyId = "ocid1.tenancy.oc1..aaaaaaaagwmwhlofsz3rx4d3glfaqxlim4ryintboyuashvnw32e3uqx4wia" //tenancy ID
@@ -25,4 +24,3 @@ exports.accessKey = accessKey
 exports.secretKey = secretKey
 exports.bucketName = bucketName
 exports.tenancyId = tenancyId
-exports.configFileForFsWrite = configFileForFsWrite
