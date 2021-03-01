@@ -22,7 +22,7 @@ let jwtCheck = jwt({
     algorithms: ['RS256']
 })
 
-app.use(jwtCheck)
+//app.use(jwtCheck)
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
 app.use(cors())
