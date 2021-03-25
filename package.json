@@ -22,11 +22,13 @@
         "jwks-rsa": "^1.12.2",
         "mime": "^2.5.0",
         "mongoose": "^5.11.15",
+        "nodemailer": "^6.5.0",
         "oci-sdk": "^1.14.0",
         "passport": "^0.4.1",
         "passport-jwt": "^4.0.0",
         "passport-local": "^1.0.0",
         "randexp": "^0.5.3",
+        "util": "^0.12.3",
         "uuid": "^8.3.0"
     }
 }

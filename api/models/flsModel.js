@@ -15,7 +15,10 @@ const core = require("oci-core"),
     appsFss = require('../config/fss.json'),
     config = require("../config/ociConfig"),
     ads = require("../config/ad.json"),
-    tagKey = "owner"
+    nodemailer = require("nodemailer"),
+    util = require("util"),
+    tagKey = "owner",
+    tagName = "displayName"
 
 //Cloud init script
 const scriptPath = config.scriptPath
@@ -211,6 +214,7 @@ async function provisionInstance(region, name, shape, ad, userEmail) {
 
         let pass = generateVNCPassword()
         let data = await base64encodefile(scriptPath)
+        let instanceName = generateInstanceName(shape)
 
         let namespace = await getOsNamespace()
 
@@ -229,13 +233,13 @@ async function provisionInstance(region, name, shape, ad, userEmail) {
             compartmentId: config.compartmentId,
             availabilityDomain: ad,
             shape: shape,
-            displayName: name,
+            displayName: instanceName,
             sourceDetails: sourceDetails,
             createVnicDetails: {
                 subnetId: subnets[region]
             },
             metadata: metadata,
-            freeformTags: { "owner": userEmail }
+            freeformTags: { "owner": userEmail, "displayName": name }
         }
 
         //launch the provisioning request
@@ -254,8 +258,13 @@ async function provisionInstance(region, name, shape, ad, userEmail) {
         const getInstanceResponse = await computeWaiter.forInstance(getInstanceRequest, core.models.Instance.LifecycleState.Running)
 
         const instanceId = getInstanceResponse.instance.id
+        const instanceIP = await getPublicIP(region, instanceId)
+        const url = new URL("http://" + instanceIP)
 
         let returnValue = { "instanceId": instanceId, "password": pass }
+
+        //send email with the password
+        sendVNCPassword(pass, name, userEmail, url)
 
         return returnValue
 
@@ -496,6 +505,42 @@ async function getCurrentRegion() {
 //generate password with 2 uppercase characters, 2 lowercase characters, 6 random characters and 2 special characters
 const generateVNCPassword = () => {
     return new RandExp(/^([A-Z]{2}[a-z]{2}[a-zA-Z]{6}[#_-]{2})$/).gen()
+}
+
+//generate instance name
+const generateInstanceName = shape => {
+    let type
+    if (shape.includes("GPU")) type = "gpu"
+    else type = "nogpu"
+    let rand = new RandExp(/^([0-9]{6})$/).gen()
+    return "oc1-rocky-" + type + "-instance-" + rand + "-p"
+}
+
+//send instance password via email
+function sendVNCPassword(passwd, instanceName, email, url) {
+    const transporter = nodemailer.createTransport({
+        host: config.smtpEndpoint,
+        port: 587,
+        secure: false,
+        auth: {
+            user: config.smtpUser,
+            pass: config.smtpPasswd,
+        },
+    })
+    const mailOptions = {
+        from: config.approvedSender,
+        to: email,
+        subject: "Your VNC Password for the new instance " + instanceName,
+        text: "The VNC password for instance " + instanceName + " is " + passwd + "\r\n" + "Your connection URL is: " + url,
+        html: "<h1>ROCKY</h1><p>The VNC password for instance " + instanceName + " is " + passwd + "</p><p>Your connection URL is: " + url + "</p>",
+    }
+    transporter.sendMail(mailOptions, function(error, info) {
+        if (error) {
+            throw error
+        } else {
+            console.log("Email sent: " + info.response);
+        }
+    })
 }
 
 //Base64 encode the Cloud init script

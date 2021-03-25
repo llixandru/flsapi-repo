@@ -14,11 +14,11 @@ let jwtCheck = jwt({
     secret: jwks.expressJwtSecret({
         cache: true,
         rateLimit: true,
-        jwksRequestsPerMinute: 5,
-        jwksUri: 'https://dev-bbijppeg.eu.auth0.com/.well-known/jwks.json'
+        jwksRequestsPerMinute: 50,
+        jwksUri: 'https://liana.eu.auth0.com/.well-known/jwks.json'
     }),
     audience: 'http://localhost:3000',
-    issuer: 'https://dev-bbijppeg.eu.auth0.com/',
+    issuer: 'https://liana.eu.auth0.com/',
     algorithms: ['RS256']
 })
 
