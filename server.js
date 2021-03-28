@@ -9,6 +9,8 @@ var express = require('express'),
     jwt = require('express-jwt'),
     jwks = require('jwks-rsa')
 
+//run the server in production mode, comment to run in debug mode
+//process.env.NODE_ENV = 'production'
 
 let jwtCheck = jwt({
     secret: jwks.expressJwtSecret({

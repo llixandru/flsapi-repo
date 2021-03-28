@@ -3,8 +3,8 @@
 var oci = require("../models/flsModel")
 
 exports.list_all_instances = function(req, res) {
-    oci.getInstances(req.body.region, req.body.instanceOwner).then(instances => {
-        res.json(instances)
+    oci.getInstances(req.body.region, req.body.instanceOwner).then(result => {
+        res.json(result)
     }, error => {
         res.status(409).json({
             status: false,

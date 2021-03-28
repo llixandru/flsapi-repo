@@ -11,8 +11,10 @@ const bucketName = "xxxx"
     //email configuration
 const smtpUser = "ocid1.user.oc1..aaaaaaaat5tnvkpfm5dpnjnhta6gg2easzc2fo72lenk3zwru5774mg57ykq@ocid1.tenancy.oc1..aaaaaaaagwmwhlofsz3rx4d3glfaqxlim4ryintboyuashvnw32e3uqx4wia.et.com"
 const smtpPasswd = "kzhkzo.F#:}:dX5L4Y}x"
-const approvedSender = "rocky-hpc@flsmidth.com"
+const approvedSender = "no-reply@fls-rocky-oci.com"
 const smtpEndpoint = "smtp.email.eu-frankfurt-1.oci.oraclecloud.com"
+    //max number of instances per user
+const maxInstances = 5
     //End Config for the OCI instance
 
 //Cloud init script
@@ -31,3 +33,4 @@ exports.smtpUser = smtpUser
 exports.smtpPasswd = smtpPasswd
 exports.approvedSender = approvedSender
 exports.smtpEndpoint = smtpEndpoint
+exports.maxInstances = maxInstances

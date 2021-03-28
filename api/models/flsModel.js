@@ -17,6 +17,7 @@ const core = require("oci-core"),
     ads = require("../config/ad.json"),
     nodemailer = require("nodemailer"),
     util = require("util"),
+    Email = require('email-templates'),
     tagKey = "owner",
     tagName = "displayName"
 
@@ -259,7 +260,7 @@ async function provisionInstance(region, name, shape, ad, userEmail) {
 
         const instanceId = getInstanceResponse.instance.id
         const instanceIP = await getPublicIP(region, instanceId)
-        const url = new URL("http://" + instanceIP)
+        const url = new URL("https://" + instanceIP + "/vnc.html?host=" + instanceIP + "&port=443&resize=remote&password=" + pass)
 
         let returnValue = { "instanceId": instanceId, "password": pass }
 
@@ -462,7 +463,12 @@ async function getInstances(region, userEmail) {
     const availabilityDomains = await getAvailabilityDomains(region)
     const ad = ads[region]
     const listInstances = await getInstancesInAD(region, availabilityDomains[ad].name, userEmail)
-    return listInstances
+        //calculate how many instances can the user still provision
+    const allowedNumber = ((config.maxInstances - listInstances.length) > 0) ? (config.maxInstances - listInstances.length) : 0
+
+    const response = { "listInstances": listInstances, "allowedNumberLeft": allowedNumber }
+
+    return response
 }
 
 async function getShapes(region) {
@@ -518,29 +524,34 @@ const generateInstanceName = shape => {
 
 //send instance password via email
 function sendVNCPassword(passwd, instanceName, email, url) {
-    const transporter = nodemailer.createTransport({
-        host: config.smtpEndpoint,
-        port: 587,
-        secure: false,
-        auth: {
-            user: config.smtpUser,
-            pass: config.smtpPasswd,
+    const provisionMail = new Email({
+        message: {
+            from: config.approvedSender,
+            to: email
         },
-    })
-    const mailOptions = {
-        from: config.approvedSender,
-        to: email,
-        subject: "Your VNC Password for the new instance " + instanceName,
-        text: "The VNC password for instance " + instanceName + " is " + passwd + "\r\n" + "Your connection URL is: " + url,
-        html: "<h1>ROCKY</h1><p>The VNC password for instance " + instanceName + " is " + passwd + "</p><p>Your connection URL is: " + url + "</p>",
-    }
-    transporter.sendMail(mailOptions, function(error, info) {
-        if (error) {
-            throw error
-        } else {
-            console.log("Email sent: " + info.response);
+        //Uncomment to send email in development/test environment
+        //send: true,
+        transport: {
+            host: config.smtpEndpoint,
+            port: 587,
+            secure: false,
+            auth: {
+                user: config.smtpUser,
+                pass: config.smtpPasswd,
+            }
         }
     })
+    provisionMail.send({
+            template: path.join(__dirname, '../', 'config', 'emails', 'new_instance'),
+            locals: {
+                name: email,
+                instanceName: instanceName,
+                passwd: passwd,
+                url: url
+            }
+        })
+        .then(console.log("Email send OK"))
+        .catch(console.error)
 }
 
 //Base64 encode the Cloud init script
