@@ -15,3 +15,4 @@
 - Provision instance
 - Terminate instance
 - Start/Stop instance
+- Test cpauliat
